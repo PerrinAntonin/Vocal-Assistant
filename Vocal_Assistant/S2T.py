@@ -23,7 +23,6 @@ def displayMffc(mfcc,text):
 
 def find_mp3_files(names,path):
   files=glob.glob(path+'*.mp3')
-  print
   sounds=[]
   for file in files:
     buffer = file.replace(".mp3", ".wav")
@@ -55,12 +54,13 @@ def readcsv():
             buffer = line[1].replace("mp3", "wav")
             names.append(buffer)
             texts.append(line[2])
+    names=names[1:]
+    texts=texts[1:]
     print("nb de csv",len(names))
     return names,texts
 
 def loadWav(names,path):
     wavFiles=[]
-    names=names[1:]
     for file in names:
         file=path+file
         y, sr = librosa.load(file, sr=16000)
@@ -117,7 +117,7 @@ def createModel():
     model.add(Dense(1))
 
     #adamperso = optimizers.Adam(lr=0.000001)
-    model.compile(loss="mean_squared_error", optimizer="adam")
+    #model.compile(loss="mean_squared_error", optimizer="adam")
     
     return model
 
@@ -182,8 +182,8 @@ if __name__ == "__main__":
     names,texts = readcsv()
     #mp3towav(names,pathFile)
     #reduce for dev
-    names= names[:20]
-    texts= texts[:20]
+    names= names[:32]
+    texts= texts[:32]
     mfccs=loadWav(names,pathFile)
     print("mfccs load")
     #displayMffc(mfccs[2],texts[2])
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     model.reset_states()
     batch_inputs, batch_targets = next(gen_batch(mfccs, texts, batch_size))
-
+    print(batch_inputs[0],batch_targets[0])
     for epoch in range(epochs):
         for batch_inputs, batch_targets in gen_batch(mfccs, texts, batch_size):
             train_step(batch_inputs, batch_targets)
