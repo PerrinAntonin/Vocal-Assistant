@@ -1,6 +1,7 @@
 import os
 import csv
 import glob
+import json
 import pydub
 import epitran
 import unidecode
@@ -45,8 +46,8 @@ def mp3towav(names,path):
         sound.export(newFile, format="wav",bitrate='16k')
         os.remove(file)
 
-def readcsv():
-    with open("C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv" , encoding="utf8") as tsvfile:
+def readcsv(pathCsv):
+    with open(pathCsv , encoding="utf8") as tsvfile:
         tsvreader = csv.reader(tsvfile, delimiter="\t")
         names=[]
         texts=[]
@@ -65,11 +66,14 @@ def loadWav(names,path):
         file=path+file
         y, sr = librosa.load(file, sr=16000)
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
+        mfccs=np.array(mfccs)
+
         wavFiles.append(mfccs)
     return wavFiles
 
 def preProcessText(texts):
     textsplit=[]
+    vocabTotal=[]
     for text in texts:
         text = unidecode.unidecode(text)
         text = text.lower()
@@ -86,9 +90,17 @@ def preProcessText(texts):
         text = text.replace("}", "")
         text = text.replace(";", ",")
         text = text.replace("|", "")
+        text = text.strip()
 
-        textsplit.append(text.split())
-    return textsplit
+        vocab = set(text)
+        vocab = ''.join(vocab)
+        vocabTotal.append(vocab)
+        textsplit.append(text)
+    
+    flattened  = [val for sublist in vocabTotal for val in sublist]
+    vocabTotal =set(flattened)
+    print("vocabTotal(",len(vocabTotal),"): ",vocabTotal)
+    return np.array(textsplit),np.array(vocabTotal)
 
 def text2phonemes(text):
     epi = epitran.Epitran('fra-Latn')
@@ -98,8 +110,6 @@ def text2phonemes(text):
     print(test.reverse_transliterate(ipa))
     
 
-
-
 def createModel():
     model = Sequential()
 
@@ -107,17 +117,17 @@ def createModel():
     model.add(MaxPooling1D(pool_size=2, strides=2, padding="same"))
 
     model.add(LSTM(1, return_sequences=True))
-    N=6
+    print(N)
     model.add(Lambda(lambda x: x[:, -N:, :]))
     
     model.add(Flatten())
     model.add(Dropout(.6))
-    model.add(Dense(1024, activation="elu"))
+    model.add(Dense(512, activation="elu"))
     model.add(Dropout(.3))
-    model.add(Dense(1))
+    model.add(Dense(len(vocab), activation="softmax"))
 
     #adamperso = optimizers.Adam(lr=0.000001)
-    #model.compile(loss="mean_squared_error", optimizer="adam")
+    model.compile(loss="mean_squared_error", optimizer="adam")
     
     return model
 
@@ -137,12 +147,10 @@ def gen_batch(files,label_files, batch_size = 64):
                batch_output.append(batch_y)
                size=0
             size=size+1
-        #batch_x = np.array( batch_input )
-        #batch_y = np.array( batch_output )
+        batch_x = batch_input
+        batch_y = np.array( batch_output,dtype=object )
         
         yield( batch_x, batch_y )
-
-    
 
 
 @tf.function
@@ -177,20 +185,32 @@ def predict(inputs):
 
 
 if __name__ == "__main__":
-    pathFile="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+    pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+    pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
     #text2phonemes('hello')
-    names,texts = readcsv()
+    names,texts = readcsv(pathCsv)
     #mp3towav(names,pathFile)
+
     #reduce for dev
     names= names[:32]
     texts= texts[:32]
+
     mfccs=loadWav(names,pathFile)
     print("mfccs load")
     #displayMffc(mfccs[2],texts[2])
-    texts = preProcessText(texts)
+    texts,vocab = preProcessText(texts)
     test = np.array(mfccs[2])
-    print(test.shape)
+    print(texts)
     print(texts[2],mfccs[2])
+    text= texts[2].tolist()
+    vocab = vocab.tolist()
+    vocab_to_int = {l:i for i,l in enumerate(vocab)}
+    int_to_vocab = {i:l for i,l in enumerate(vocab)}
+    encoded_text =[vocab_to_int[l] for l in text]
+    decoded_text =[int_to_vocab[l] for l in encoded_text]
+
+    decoded_text = "".join(decoded_text)
+
     
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam(lr=0.001)
@@ -201,19 +221,30 @@ if __name__ == "__main__":
     # Accuracy
     train_accuracy = metrics.SparseCategoricalCrossentropy(name='train_accuracy')
     valid_accuracy = metrics.SparseCategoricalCrossentropy(name='valid_accuracy')
-    
+    global N
+    N =1
     model = createModel()
-    
+    #model.summary()
 
     epochs = 20
-    batch_size = 16
-
+    #batch_size = 16
+    
     model.reset_states()
-    batch_inputs, batch_targets = next(gen_batch(mfccs, texts, batch_size))
-    print(batch_inputs[0],batch_targets[0])
+    #batch_inputs, batch_targets = next(gen_batch(mfccs, texts, batch_size))
+    #print(batch_inputs[0],batch_targets[0])
     for epoch in range(epochs):
-        for batch_inputs, batch_targets in gen_batch(mfccs, texts, batch_size):
-            train_step(batch_inputs, batch_targets)
+        for batch_inputs, batch_targets in zip(mfccs, texts):
+
+            batch_inputs[:, 15]
+            for test in batch_inputs:
+
+                N=len(text)
+                train_step(test, batch_targets)
         template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
         print(template.format(epoch, train_loss.result(), train_accuracy.result()*100), end="")
         model.reset_states()
+    print("/nmodel saved")
+    with open("model_rnn_vocab_to_int", "w") as f:
+        f.write(json.dumps(vocab_to_int))
+    with open("model_rnn_int_to_vocab", "w") as f:
+        f.write(json.dumps(int_to_vocab))
