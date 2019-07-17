@@ -92,6 +92,7 @@ def preProcessText(texts):
         text = text.replace("|", "")
         text = text.strip()
 
+
         vocab = set(text)
         vocab = ''.join(vocab)
         vocabTotal.append(vocab)
@@ -100,7 +101,7 @@ def preProcessText(texts):
     flattened  = [val for sublist in vocabTotal for val in sublist]
     vocabTotal =set(flattened)
     print("vocabTotal(",len(vocabTotal),"): ",vocabTotal)
-    return np.array(textsplit),np.array(vocabTotal)
+    return textsplit,vocabTotal
 
 def text2phonemes(text):
     epi = epitran.Epitran('fra-Latn')
@@ -125,9 +126,6 @@ def createModel():
     model.add(Dense(512, activation="elu"))
     model.add(Dropout(.3))
     model.add(Dense(len(vocab), activation="softmax"))
-
-    #adamperso = optimizers.Adam(lr=0.000001)
-    model.compile(loss="mean_squared_error", optimizer="adam")
     
     return model
 
@@ -159,8 +157,8 @@ def train_step(inputs, targets):
     with tf.GradientTape() as tape:
         # fait une prediction
         predictions = model(inputs)
-        print("rotations shape after creation model",targets)
-        print("prediction shape after creation model",predictions)
+        print(" shape after creation model",targets)
+        print(" shape after creation model",predictions)
         # calcul de l'erreur en fonction de la prediction et des targets
         loss = loss_object(targets, predictions)
         print("calcul loss",loss)
@@ -199,17 +197,17 @@ if __name__ == "__main__":
     print("mfccs load")
     #displayMffc(mfccs[2],texts[2])
     texts,vocab = preProcessText(texts)
-    test = np.array(mfccs[2])
-    print(texts)
-    print(texts[2],mfccs[2])
-    text= texts[2].tolist()
-    vocab = vocab.tolist()
+
     vocab_to_int = {l:i for i,l in enumerate(vocab)}
     int_to_vocab = {i:l for i,l in enumerate(vocab)}
-    encoded_text =[vocab_to_int[l] for l in text]
-    decoded_text =[int_to_vocab[l] for l in encoded_text]
-
-    decoded_text = "".join(decoded_text)
+    encoded_texts = []
+    for text in texts:
+        encoded_text =[vocab_to_int[l] for l in text]
+        
+        encoded_texts.append(encoded_text)
+    
+    #decoded_text =[int_to_vocab[l] for l in encoded_text]
+    #decoded_text = "".join(decoded_text)
 
     
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
@@ -227,23 +225,23 @@ if __name__ == "__main__":
     #model.summary()
 
     epochs = 20
-    #batch_size = 16
     
     model.reset_states()
-    #batch_inputs, batch_targets = next(gen_batch(mfccs, texts, batch_size))
-    #print(batch_inputs[0],batch_targets[0])
+
     for epoch in range(epochs):
-        for batch_inputs, batch_targets in zip(mfccs, texts):
-
-            batch_inputs[:, 15]
-            for test in batch_inputs:
-
-                N=len(text)
-                train_step(test, batch_targets)
+        for batch_inputs, batch_targets in zip(mfccs, encoded_texts):
+            for i in range(len(batch_inputs[1])):
+                N=len(batch_targets)
+                print(batch_targets)
+                TrainX=np.array(batch_inputs[:, i])
+                TrainX =np.float32(TrainX)
+                TrainX= np.reshape(TrainX,(1,1, TrainX.shape[0]))
+                train_step(TrainX, batch_targets)
         template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
         print(template.format(epoch, train_loss.result(), train_accuracy.result()*100), end="")
         model.reset_states()
-    print("/nmodel saved")
+
+    
     with open("model_rnn_vocab_to_int", "w") as f:
         f.write(json.dumps(vocab_to_int))
     with open("model_rnn_int_to_vocab", "w") as f:
