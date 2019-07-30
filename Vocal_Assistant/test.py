@@ -3,6 +3,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
+
 import pandas as pd
 import glob
 from sklearn.cluster import KMeans
@@ -20,14 +21,32 @@ def loadDataset():
         y, sr = librosa.load(file, sr=16000)
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40) 
         sounds.append(mfccs)
-    print (sounds)
     return sounds
 
+def split_listtest(a_list):
+    half = len(a_list)//2
+    return a_list[:half]
+
+def split_list(a_list,len_chunk):
+    chunks = []
+    for i in range(0, len(a_list), len_chunk):  
+        chunks.append(a_list[i:i + len_chunk])
+    chunks=chunks[:-1] 
+    print("chunk",chunks[:-1])
+    return chunks
+        
+    
 
 #display test
 y, sr = librosa.load("common_voice_fr_17300098.wav", sr=16000)
+print("durée",librosa.core.get_duration(y=y, sr=sr))
+print(len(y))
 
-mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
+y1 = np.array(split_list(y,641))
+print("shape of y", y1.shape)
+mfccs = librosa.feature.mfcc(y=y1[1], sr=sr, n_mfcc=40)
+mfccShape = np.array(mfccs).shape
+print("shape of mfccs",mfccShape)
 librosa.feature.mfcc(y=y, sr=sr)
 plt.figure(figsize=(10, 4))
 librosa.display.specshow(mfccs, x_axis='time')
@@ -36,6 +55,7 @@ plt.title('MFCC')
 plt.tight_layout()
 plt.show()
 
+"""
 audio = loadDataset()
 
 
@@ -79,6 +99,6 @@ plt.scatter(
 plt.legend(scatterpoints=1)
 plt.grid()
 plt.show()
-
+"""
 "L’investissement dans l’industrie est en baisse."
 #graph_spectrogram("common_voice_fr_17300098.wav")

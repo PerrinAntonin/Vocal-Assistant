@@ -12,7 +12,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.python.keras import metrics, optimizers, losses
 from tensorflow.python.keras.models import Model, Sequential
-from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM
+from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM,Input
 
 def displayMffc(mfcc,text):
     plt.figure(figsize=(10, 4))
@@ -60,15 +60,20 @@ def readcsv(pathCsv):
     print("nb de csv",len(names))
     return names,texts
 
-def loadWav(names,path):
+def loadWav(names,path,len_chunk = 641):
     wavFiles=[]
     for file in names:
         file=path+file
         y, sr = librosa.load(file, sr=16000)
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-        mfccs=np.array(mfccs)
+        audios = split_list(y,len_chunk)
+        song=[]
+        for audio in audios:
+            audio = np.array(audio)
+            mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+            #print(np.array(mfccs.shape))
+            song.append(mfccs)
 
-        wavFiles.append(mfccs)
+        wavFiles.append(song)
     return wavFiles
 
 def preProcessText(texts):
@@ -110,46 +115,45 @@ def text2phonemes(text):
     test = epitran.Epitran('fra-Latn',rev=True)
     print(test.reverse_transliterate(ipa))
     
+def split_list(a_list,len_chunk):
+    chunks = []
+    for i in range(0, len(a_list), len_chunk):  
+        chunks.append(a_list[i:i + len_chunk])
+    chunks=chunks[:-1] 
+    #print("chunk",chunks[:-1])
+    return chunks
+
+
+def gen_batch(files,label_files, len_chunk = 641):      
+    batch_x=[]
+    batch_y=[]
+    # Read in each input, perform preprocessing and get labels          
+    for file, label_file in zip(files, label_files):
+        #print("test")
+        batch_x += [ file ]
+        batch_y += [ label_file ] 
+    #print(batch_x, batch_y)
+    return batch_x, batch_y
 
 def createModel():
     model = Sequential()
-
+    
+    model.add(Input(shape=(40,2), batch_size=1))
     model.add(Conv1D(8, 9, strides=4, padding="same", activation="elu"))
     model.add(MaxPooling1D(pool_size=2, strides=2, padding="same"))
 
-    model.add(LSTM(1, return_sequences=True))
-    print(N)
-    model.add(Lambda(lambda x: x[:, -N:, :]))
+    model.add(LSTM(128, return_sequences=True, stateful=True))
+    #print(N)
+    
+    #model.add(Lambda(lambda x: x[:, -N:, :]))
     
     model.add(Flatten())
     model.add(Dropout(.6))
-    model.add(Dense(512, activation="elu"))
+    model.add(Dense(256, activation="elu"))
     model.add(Dropout(.3))
     model.add(Dense(len(vocab), activation="softmax"))
     
     return model
-
-def gen_batch(files,label_files, batch_size = 64):
-    while True:          
-        batch_input = []
-        batch_output = [] 
-        batch_x=[]
-        batch_y=[]
-        size = 0
-        # Read in each input, perform preprocessing and get labels          
-        for file, label_file in zip(files, label_files):
-            batch_x += [ file ]
-            batch_y += [ label_file ] 
-            if(size>=batch_size):
-               batch_input.append(batch_x)
-               batch_output.append(batch_y)
-               size=0
-            size=size+1
-        batch_x = batch_input
-        batch_y = np.array( batch_output,dtype=object )
-        
-        yield( batch_x, batch_y )
-
 
 @tf.function
 def train_step(inputs, targets):
@@ -182,6 +186,7 @@ def predict(inputs):
     return predictions
 
 
+
 if __name__ == "__main__":
     pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
@@ -190,8 +195,8 @@ if __name__ == "__main__":
     #mp3towav(names,pathFile)
 
     #reduce for dev
-    names= names[:32]
-    texts= texts[:32]
+    names= names[:40]
+    texts= texts[:40]
 
     mfccs=loadWav(names,pathFile)
     print("mfccs load")
@@ -205,6 +210,7 @@ if __name__ == "__main__":
         encoded_text =[vocab_to_int[l] for l in text]
         
         encoded_texts.append(encoded_text)
+    #print(encoded_texts[0])
     
     #decoded_text =[int_to_vocab[l] for l in encoded_text]
     #decoded_text = "".join(decoded_text)
@@ -219,24 +225,32 @@ if __name__ == "__main__":
     # Accuracy
     train_accuracy = metrics.SparseCategoricalCrossentropy(name='train_accuracy')
     valid_accuracy = metrics.SparseCategoricalCrossentropy(name='valid_accuracy')
-    global N
-    N =1
+    #global N
+    #N =1
     model = createModel()
-    #model.summary()
+    model.summary()
 
     epochs = 20
     
     model.reset_states()
+    batch_inputs, batch_targets = gen_batch(mfccs, encoded_texts)
 
     for epoch in range(epochs):
-        for batch_inputs, batch_targets in zip(mfccs, encoded_texts):
-            for i in range(len(batch_inputs[1])):
-                N=len(batch_targets)
-                print(batch_targets)
-                TrainX=np.array(batch_inputs[:, i])
-                TrainX =np.float32(TrainX)
-                TrainX= np.reshape(TrainX,(1,1, TrainX.shape[0]))
-                train_step(TrainX, batch_targets)
+        for batch_inputs, batch_targets in zip(batch_inputs, batch_targets):
+            TrainX =np.float32(batch_inputs)
+            batch_targets = np.array(batch_targets)
+            #N = len(batch_inputs[0])
+            #TrainX = np.expand_dims(TrainX, axis=0)
+            #batch_targets = np.expand_dims(batch_targets, axis=0)
+            #batch_input= np.reshape(batch_input,(1,batch_input))
+            print("ok")
+            for batch_input in TrainX:
+                print(np.array(batch_input).shape)
+                batch_input = np.expand_dims(batch_input, axis=0)
+                print("ok")
+                train(batch_input)
+                
+            model.reset_states()
         template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
         print(template.format(epoch, train_loss.result(), train_accuracy.result()*100), end="")
         model.reset_states()
@@ -246,3 +260,24 @@ if __name__ == "__main__":
         f.write(json.dumps(vocab_to_int))
     with open("model_rnn_int_to_vocab", "w") as f:
         f.write(json.dumps(int_to_vocab))
+
+"""
+    for epoch in range(epochs):
+        for batch_inputs, batch_targets in zip(mfccs, encoded_texts):
+            for i in range(len(batch_inputs[1])):
+                N=len(batch_targets)
+
+                TrainX=np.array(batch_inputs[:, i])
+                TrainX =np.float32(TrainX)
+                TrainX= np.reshape(TrainX,(1,1, TrainX.shape[0]))
+                batch_targets = np.array(batch_targets)
+                batch_targets = np.expand_dims(batch_targets, axis=0)
+                print(batch_targets.shape)
+                print(batch_targets)
+                #batch_targets= np.reshape(batch_targets,(1, batch_targets.shape))
+                train_step(TrainX, batch_targets)
+        template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
+        print(template.format(epoch, train_loss.result(), train_accuracy.result()*100), end="")
+        model.reset_states()
+        stateful lstm
+        """
