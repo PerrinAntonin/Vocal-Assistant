@@ -2,6 +2,7 @@ import os
 import csv
 import glob
 import json
+import time
 import pydub
 import epitran
 import unidecode
@@ -15,6 +16,7 @@ from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM,Input
 
 def displayMffc(mfcc,text):
+    print(text)
     plt.figure(figsize=(10, 4))
     librosa.display.specshow(mfcc, x_axis='time')
     plt.colorbar()
@@ -104,7 +106,7 @@ def preProcessText(texts):
         textsplit.append(text)
     
     flattened  = [val for sublist in vocabTotal for val in sublist]
-    vocabTotal =set(flattened)
+    vocabTotal =list(set(flattened))
     print("vocabTotal(",len(vocabTotal),"): ",vocabTotal)
     return textsplit,vocabTotal
 
@@ -123,6 +125,24 @@ def split_list(a_list,len_chunk):
     #print("chunk",chunks[:-1])
     return chunks
 
+def select_pred(predictions):
+    sentence_predict= []
+    for prediction in predictions:
+        prediction = tf.keras.backend.get_value(prediction)
+        prediction = list(prediction[0])
+        max_value = max(prediction)
+        print("max value",max_value)
+        max_index =prediction.index(max_value)
+        print("max index", max_index)
+        print("il a predit la lettre ",vocab[max_index])
+        sentence_predict.append(vocab[max_index])
+        correct_sentence_predict = []
+        i=0
+    while i < (len(sentence_predict)-1): 
+        if not (sentence_predict[i]==sentence_predict[i+1]):
+            correct_sentence_predict.append(predictions[i])
+        i += 1
+    return correct_sentence_predict
 
 def gen_batch(files,label_files, len_chunk = 641):      
     batch_x=[]
@@ -143,10 +163,7 @@ def createModel():
     model.add(MaxPooling1D(pool_size=2, strides=2, padding="same"))
 
     model.add(LSTM(128, return_sequences=True, stateful=True))
-    #print(N)
-    
-    #model.add(Lambda(lambda x: x[:, -N:, :]))
-    
+
     model.add(Flatten())
     model.add(Dropout(.6))
     model.add(Dense(256, activation="elu"))
@@ -157,27 +174,48 @@ def createModel():
 
 @tf.function
 def train_step(inputs, targets):
+
     # permet de surveiller les opérations réalisé afin de calculer le gradient
     with tf.GradientTape() as tape:
         # fait une prediction
-        predictions = model(inputs)
-        print(" shape after creation model",targets)
-        print(" shape after creation model",predictions)
+        #predictions = model(inputs)
+        print(" shape after creation model of targets",targets)
+        print(" shape after creation model of predictions",inputs)
         # calcul de l'erreur en fonction de la prediction et des targets
-        loss = loss_object(targets, predictions)
+        loss = loss_object(targets, inputs)
         print("calcul loss",loss)
     # calcul du gradient en fonction du loss
     # trainable_variables est la lst des variable entrainable dans le model
     gradients = tape.gradient(loss, model.trainable_variables)
     print("calcul gradient")
+    
     # changement des poids grace aux gradient
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     print("etape optimizer")
     # ajout de notre loss a notre vecteur de stockage
     train_loss(loss)
     print("etape train loss")
-    train_accuracy(targets, predictions)
+    train_accuracy(targets, inputs)
     print("etape train accuracy")
+
+def custom_train_step(inputs,targets):
+    batch_input =np.float32(inputs)
+    targets =np.array(targets)
+    predictions = []
+    for minibatch_input in batch_input:
+        minibatch_input = np.expand_dims(minibatch_input, axis=0)
+        prediction = predict(minibatch_input)
+        predictions.append(prediction)
+    sentence_predict = select_pred(predictions)
+    print("il a predit cette phrase",sentence_predict)
+
+    for letter,target in zip(sentence_predict,targets):
+        print("letter",letter)
+        print("target",target)
+        train_step(letter,target)
+    
+    time.sleep(10000)
+
 
 @tf.function
 def predict(inputs):
@@ -200,7 +238,7 @@ if __name__ == "__main__":
 
     mfccs=loadWav(names,pathFile)
     print("mfccs load")
-    #displayMffc(mfccs[2],texts[2])
+    #displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)
 
     vocab_to_int = {l:i for i,l in enumerate(vocab)}
@@ -225,8 +263,7 @@ if __name__ == "__main__":
     # Accuracy
     train_accuracy = metrics.SparseCategoricalCrossentropy(name='train_accuracy')
     valid_accuracy = metrics.SparseCategoricalCrossentropy(name='valid_accuracy')
-    #global N
-    #N =1
+
     model = createModel()
     model.summary()
 
@@ -236,19 +273,13 @@ if __name__ == "__main__":
     batch_inputs, batch_targets = gen_batch(mfccs, encoded_texts)
 
     for epoch in range(epochs):
-        for batch_inputs, batch_targets in zip(batch_inputs, batch_targets):
-            TrainX =np.float32(batch_inputs)
-            batch_targets = np.array(batch_targets)
+        for batch_input, batch_target in zip(batch_inputs, batch_targets):
+
+            #batch_target = np.array(batch_target)
             #N = len(batch_inputs[0])
-            #TrainX = np.expand_dims(TrainX, axis=0)
+            #batch_input = np.expand_dims(batch_input, axis=0)
             #batch_targets = np.expand_dims(batch_targets, axis=0)
-            #batch_input= np.reshape(batch_input,(1,batch_input))
-            print("ok")
-            for batch_input in TrainX:
-                print(np.array(batch_input).shape)
-                batch_input = np.expand_dims(batch_input, axis=0)
-                print("ok")
-                train(batch_input)
+            custom_train_step(batch_input,batch_target)
                 
             model.reset_states()
         template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
