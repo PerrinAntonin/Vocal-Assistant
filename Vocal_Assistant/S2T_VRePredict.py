@@ -125,7 +125,7 @@ def split_list(a_list,len_chunk):
     #print("chunk",chunks[:-1])
     return chunks
 
-def select_pred(predictions):
+def select_pred(predictions, songs):
     sentence_predict= []
     for prediction in predictions:
         prediction = tf.keras.backend.get_value(prediction)
@@ -136,15 +136,25 @@ def select_pred(predictions):
         print("max index", max_index)
         print("il a predit la lettre ",vocab[max_index])
         sentence_predict.append(vocab[max_index])
-        correct_sentence_predict = []
+        correct_sentence_song = []
         i=0
     while i < (len(sentence_predict)-1): 
         if not (sentence_predict[i]==sentence_predict[i+1]):
-            correct_sentence_predict.append(predictions[i])
+            correct_sentence_song.append(songs[i])
         i += 1
-    
-    
-    return correct_sentence_predict
+    return correct_sentence_song
+
+def converttoOneHot(data,vocab):
+    # integer encode input data
+    integer_encoded = [vocab_to_int[char] for char in data]
+    print(integer_encoded)
+    # one hot encode
+    onehot_encoded = list()
+    for value in integer_encoded:
+        letter = [0 for _ in range(len(vocab))]
+        letter[value] = 1
+        onehot_encoded.append(letter)
+    return integer_encoded
 
 def gen_batch(files,label_files, len_chunk = 641):      
     batch_x=[]
@@ -176,29 +186,26 @@ def createModel():
 
 @tf.function
 def train_step(inputs, targets):
-    # permet de surveiller les opérations réalisé afin de calculer le gradient
-    with tf.GradientTape(persistent = True,watch_accessed_variables=False) as tape:
-        tape.watch(prediction)
-        """tester a parametre dans le tape"""
+    # permet de surveiller les opérations réalisé afin de calculer le gradient    
+    with tf.GradientTape() as tape:
         # fait une prediction
-        #predictions = model(inputs)
-        print(" shape after creation model of targets",targets)
-        print(" shape after creation model of predictions",inputs)
+        predictions = model(inputs)
+        print(" shape after prediction model of targets",targets.shape)
+        print(" shape after prediction model of predictions",predictions.shape)
         # calcul de l'erreur en fonction de la prediction et des targets
-        loss = loss_object(targets, inputs)
+        loss = loss_object(targets, predictions)
         print("calcul loss",loss)
     # calcul du gradient en fonction du loss
     # trainable_variables est la lst des variable entrainable dans le model
     gradients = tape.gradient(loss, model.trainable_variables)
     print("calcul gradient")
-    
     # changement des poids grace aux gradient
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     print("etape optimizer")
     # ajout de notre loss a notre vecteur de stockage
     train_loss(loss)
     print("etape train loss")
-    train_accuracy(targets, inputs)
+    train_accuracy(targets, predictions)
     print("etape train accuracy")
 
 def custom_train_step(inputs,targets):
@@ -207,18 +214,25 @@ def custom_train_step(inputs,targets):
     predictions = []
     for minibatch_input in batch_input:
         minibatch_input = np.expand_dims(minibatch_input, axis=0)
-        global prediction
         prediction = predict(minibatch_input)
         predictions.append(prediction)
-    sentence_predict = select_pred(predictions)
-    print("il a predit cette phrase",sentence_predict)
+    sentence_predict = select_pred(predictions,batch_input)
+    #print("il a predit cette phrase",sentence_predict)
 
     for letter,target in zip(sentence_predict,targets):
-        print("letter",letter)
-        print("target",target)
+        #print("letter",letter)
+        #print("target",target)
+        letter = np.expand_dims(letter, axis=0)
+        targets =[]
+        """
+        for test in target:
+            test = np.expand_dims(test, axis=0)
+            targets.append(test)
+        targets  = np.array(targets)
+        """
         train_step(letter,target)
     
-    time.sleep(10000)
+    
 
 
 @tf.function
@@ -249,8 +263,7 @@ if __name__ == "__main__":
     int_to_vocab = {i:l for i,l in enumerate(vocab)}
     encoded_texts = []
     for text in texts:
-        encoded_text =[vocab_to_int[l] for l in text]
-        
+        encoded_text =converttoOneHot(text,vocab)
         encoded_texts.append(encoded_text)
     #print(encoded_texts[0])
     

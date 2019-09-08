@@ -3,11 +3,49 @@ import librosa.display
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
-
+from numpy import argmax
 import pandas as pd
 import glob
 from sklearn.cluster import KMeans
 
+
+
+def converttoOneHot(data,vocab):
+    # define a mapping of chars to integers
+    char_to_int = dict((c, i) for i, c in enumerate(vocab))
+    int_to_char = dict((i, c) for i, c in enumerate(vocab))
+    # integer encode input data
+    integer_encoded = [char_to_int[char] for char in data]
+    print(integer_encoded)
+    # one hot encode
+    onehot_encoded = list()
+    for value in integer_encoded:
+        letter = [0 for _ in range(len(vocab))]
+        letter[value] = 1
+        onehot_encoded.append(letter)
+    # invert encoding
+    inverted = int_to_char[argmax(onehot_encoded[0])]
+    return onehot_encoded
+
+
+target = 'test'
+vocab = ['g', 'f', 'd', 'j', 'z', 'b', "'", ' ', 'o', 't', 'r', ':', 'c', '!', 'e', '?', 'a', 'm', 's', 'h', '-', 'u', 'p', 'i', 'l', 'x', '.', 'q', ',', 'v', 'y', 'n']
+print(converttoOneHot(target,vocab))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 def find_wav_files(path):
   files=glob.glob(path+'*.wav')
   print("il y a ",len(files),"fichier wav")
@@ -55,7 +93,10 @@ plt.title('MFCC')
 plt.tight_layout()
 plt.show()
 
-"""
+
+
+
+
 audio = loadDataset()
 
 
