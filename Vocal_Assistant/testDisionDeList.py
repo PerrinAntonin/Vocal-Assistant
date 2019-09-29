@@ -2,45 +2,37 @@
 a = [1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3]
 b = [3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3]
 
-bsize =len(b)
 print("longueur de a: ",len(a))
 print("longueur de b: ",len(b))
-diff = len(b)-len(a)
-print("diff",diff)
-saut = len(b)/diff
-saut = 2.5
-print("saut",saut)
-print ("ratio",len(b)/diff)
 
-#for i in range(0, len(b), 3):
-#    if i < len(b): 
-#        b.pop(i)
-i=0
+def divide_equitably(oldList,goalList):
+    oldListSize = len(oldList)
+    diff = oldListSize-len(goalList)
+    print("diff",diff)
+    saut = oldListSize/diff
+    saut = 2.5
+    print("saut",saut)
+    print ("ratio",oldListSize/diff)
 
-exitwhile=False
-while len(b) !=len(a):
+    i=0
+    nbIndexDeleted = 0
     
-    print("new lenght", len(b))
-    if i > int(i):
-        if i<bsize:
-            print(int(i)+1)
-            b.pop(int(i)+1)
-        else:
-            exitwhile = True
-
-    else:
-        if i<bsize:
-            print(int(i))
-            b.pop(int(i))
+    while len(oldList) !=len(goalList):
+        
+        print("new lenght", len(oldList))
+        if i > int(i):
+            print("Index to delete: ",int(i)+1-nbIndexDeleted)
+            oldList.pop(int(i)+1-nbIndexDeleted)
+            nbIndexDeleted +=1
 
         else:
-            exitwhile = True
+            print("Index to delete: ",int(i)-nbIndexDeleted)
+            oldList.pop(int(i)-nbIndexDeleted)
+            nbIndexDeleted +=1
+        i +=saut
+    return oldList,goalList
 
-    if exitwhile == True:
-        break
-    i +=saut
+goalList,oldList =divide_equitably(b,a)
 
-print("longueur de a after: ",len(a))
-print("longueur de b after: ",len(b))
-#while(len(a)!=len(b)):
-
+print("longueur de goalList after: ",len(goalList))
+print("longueur de oldList after: ",len(oldList))

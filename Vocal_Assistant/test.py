@@ -10,6 +10,14 @@ from sklearn.cluster import KMeans
 
 
 
+pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+
+files = glob.glob(pathFile+"*.wav")
+print("il y a ",len(files)," qui ont été converti en .wav")
+
+
+
+"""
 def converttoOneHot(data,vocab):
     # define a mapping of chars to integers
     char_to_int = dict((c, i) for i, c in enumerate(vocab))
@@ -39,13 +47,6 @@ print(converttoOneHot(target,vocab))
 
 
 
-
-
-
-
-
-
-"""
 def find_wav_files(path):
   files=glob.glob(path+'*.wav')
   print("il y a ",len(files),"fichier wav")
