@@ -1,5 +1,7 @@
 import os
-import csv
+import util.customCsv as uCsv
+import util.editSongs as editSongs
+import util.operationOnLists as operationOnLists
 import glob
 import json
 import time
@@ -14,69 +16,6 @@ import matplotlib.pyplot as plt
 from tensorflow.python.keras import metrics, optimizers, losses
 from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM,Input
-
-def displayMffc(mfcc,text):
-    print(text)
-    plt.figure(figsize=(10, 4))
-    librosa.display.specshow(mfcc, x_axis='time')
-    plt.colorbar()
-    plt.title(text)
-    plt.tight_layout()
-    plt.show()
-
-def find_mp3_files(names,path):
-  files=glob.glob(path+'*.mp3')
-  sounds=[]
-  for file in files:
-    buffer = file.replace(".mp3", ".wav")
-    for name in names:
-        pathcsv=path+name
-        #print(pathcsv)
-        #print(buffer)
-        if(pathcsv==buffer):
-            buffer = buffer.replace(".wav", ".mp3")
-            sounds.append(buffer)
-  print("il y a ",len(sounds),"fichier mp3")
-  return np.array(sounds)
-
-def mp3towav(names,path):
-    files = find_mp3_files(names,path)
-    for file in files:
-        sound = pydub.AudioSegment.from_mp3(file)
-        newFile=file.replace(".mp3", ".wav")
-        #peut etre a mettre: ,bitrate='16k', parameters=["-acodec","pcm_u16le","-ac","1","-ar","8000"]
-        sound.export(newFile, format="wav",bitrate='16k')
-        os.remove(file)
-
-def readcsv(pathCsv):
-    with open(pathCsv , encoding="utf8") as tsvfile:
-        tsvreader = csv.reader(tsvfile, delimiter="\t")
-        names=[]
-        texts=[]
-        for line in tsvreader: 
-            buffer = line[1].replace("mp3", "wav")
-            names.append(buffer)
-            texts.append(line[2])
-    names=names[1:]
-    texts=texts[1:]
-    print("nb de csv",len(names))
-    return names,texts
-
-def loadWav(names,path,len_chunk = 641):
-    wavFiles=[]
-    for file in names:
-        file=path+file
-        y, sr = librosa.load(file, sr=16000)
-        audios = split_list(y,len_chunk)
-        song=[]
-        for audio in audios:
-            audio = np.array(audio)
-            mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
-            #print(np.array(mfccs.shape))
-            song.append(mfccs)
-
-        wavFiles.append(song)
-    return wavFiles
 
 def preProcessText(texts):
     textsplit=[]
@@ -120,13 +59,7 @@ def text2phonemes(text):
     test = epitran.Epitran('fra-Latn',rev=True)
     print(test.reverse_transliterate(ipa))
     
-def split_list(a_list,len_chunk):
-    chunks = []
-    for i in range(0, len(a_list), len_chunk):  
-        chunks.append(a_list[i:i + len_chunk])
-    chunks=chunks[:-1] 
-    #print("chunk",chunks[:-1])
-    return chunks
+
 
 # Elle a pour but de selectionner quel parti du song a gardé en fonction de prediction,
 # afin de faire correspondre la longeur des targets au inputs.
@@ -229,6 +162,8 @@ def preProcessAudio(inputs,targets):
         prediction = predict(input)
         predictions.append(prediction)
     sentence_predict = select_pred(predictions, batch_input, targets)
+    print(len(sentence_predict),len(targets))
+    sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
     
     #Seconde partie qui consiste a reduire le nombre de prediction equitablement
     
@@ -244,19 +179,22 @@ def predict(inputs):
 
 if __name__ == "__main__":
     pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+    pathFileV2 ="C:\\Users\\tompe\\Documents\\dl6\\Vocal-Assistant\\data\\clips\\"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
+    pathCsvV2 = "C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/dev.tsv"
     # a étudier plus tard
     #text2phonemes('hello')
-
-    names,texts = readcsv(pathCsv)
+    exampleCsv = uCsv.customCsv(pathCsvV2)
+    exampleCsv.readcsv()
+    names,texts = exampleCsv.getContent()
     #a activer s'il y a des fichier mp3 dans la dataset
     #mp3towav(names,pathFile)
 
     #Reduce for dev
     names= names[:40]
     texts= texts[:40]
-
-    mfccs=loadWav(names,pathFile)
+    toolSong = editSongs.editSongs()
+    mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
     print("mfccs load")
     #displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)

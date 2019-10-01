@@ -40,16 +40,16 @@ class operationOnLists:
         print(self.oldList,self.goalList)
 
 #exemple of use
-"""
+
 def main():
     a = [1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3]
     b = [3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,3,1,2,3,1,2,3,1,2,3]
     print("longueur de a: ",len(a))
     print("longueur de b: ",len(b))
-    new,goal=operationOnLists(a,b).divide_equitably()
+    new,goal=operationOnLists(b,a).divide_equitably()
     print("longueur de goal: ",len(new))
     print("longueur de goal: ",len(goal))
 
 if __name__ == "__main__":
     main()
-    """
+    
