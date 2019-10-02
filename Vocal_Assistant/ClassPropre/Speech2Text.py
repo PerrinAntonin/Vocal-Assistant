@@ -17,6 +17,7 @@ from tensorflow.python.keras import metrics, optimizers, losses
 from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM,Input
 
+
 def preProcessText(texts):
     textsplit=[]
     vocabTotal=[]
@@ -66,6 +67,7 @@ def text2phonemes(text):
 # A FINIR!!!!!!!!
 def select_pred(predictions, songs, targets):
     targets_len = len(targets)
+    print("test",targets_len,"testest",len(predictions))
     sentence_predict= []
     for prediction in predictions:
         prediction = tf.keras.backend.get_value(prediction)
@@ -162,8 +164,10 @@ def preProcessAudio(inputs,targets):
         prediction = predict(input)
         predictions.append(prediction)
     sentence_predict = select_pred(predictions, batch_input, targets)
-    print(len(sentence_predict),len(targets))
+    # A CHANGER!!!!
+    #if(len(sentence_predict)>len(targets)):
     sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
+    print("",len(sentence_predict),len(targets))
     
     #Seconde partie qui consiste a reduire le nombre de prediction equitablement
     

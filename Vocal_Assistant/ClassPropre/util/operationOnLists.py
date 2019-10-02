@@ -1,3 +1,5 @@
+import coloredlogs, logging
+
 class operationOnLists:
     def __init__(self,oldList,goalList):
         self.oldList = oldList
@@ -5,16 +7,17 @@ class operationOnLists:
 
 
     def divide_equitably(self):
+        logger = logging.getLogger(__name__)
+        coloredlogs.install(level='ERROR', logger=logger)
+
         oldListSize = len(self.oldList)
-        if oldListSize<len(self.goalList):
-            CRED = '\033[91m'
-            CEND ='\033[0m'
-            print(CRED+'ERR: util.operationOnLists\n        the oldLIst is lower than goalList'+CEND)
+        if oldListSize<len(self.goalList):            
+            logger.error('ERR: util.operationOnLists\nthe oldLIst is lower than goalList')
             return 0
         diff = oldListSize-len(self.goalList)
         print("diff",diff)
         saut = oldListSize/diff
-        saut = 2.5
+        #saut = round(saut,1)
         print("saut",saut)
         print ("ratio",oldListSize/diff)
 
@@ -22,17 +25,10 @@ class operationOnLists:
         nbIndexDeleted = 0
         
         while len(self.oldList) !=len(self.goalList):
-            
             print("new lenght", len(self.oldList))
-            if i > int(i):
-                print("Index to delete: ",int(i)+1-nbIndexDeleted)
-                self.oldList.pop(int(i)+1-nbIndexDeleted)
-                nbIndexDeleted +=1
-
-            else:
-                print("Index to delete: ",int(i)-nbIndexDeleted)
-                self.oldList.pop(int(i)-nbIndexDeleted)
-                nbIndexDeleted +=1
+            print("Index to delete: ",int(round(i,0))-nbIndexDeleted)
+            self.oldList.pop(int(round(i,0))-nbIndexDeleted)
+            nbIndexDeleted +=1
             i +=saut
         return self.oldList,self.goalList
     
