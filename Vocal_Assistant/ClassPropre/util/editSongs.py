@@ -2,12 +2,12 @@ import os
 import glob
 import pydub
 import librosa
-import util.customCsv
+#import util.customCsv as cCsv
 import numpy as np
 import matplotlib as plt
 
 
-class editSongs:
+class editSongs  :
     #convert mp3 to wav
     def mp3towav(self,names,path):
         for name in names:
@@ -63,18 +63,23 @@ class editSongs:
 #exemple of use
 """
 def main():
-    pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+    pathFile ="C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/clips/"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
+    pathCsv2 = "C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/dev.tsv"
+    pathFileV2 ="C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/clips/"
     #va récuperer toutes les informations du csv concernant le nom du song et son texte
-    SongCsv = customCsv.customCsv(pathCsv)
+    SongCsv = customCsv.customCsv(pathCsv2)
     SongCsv.readcsv()
     toolSong = editSongs()
     names,texts = SongCsv.getContent() 
 
     print("exemple: ",names[1])
-
+    names = names[:40]
     #va checker si le fichier exister et le convertir en mp3
-    toolSong.mp3towav(names,pathFile)
+    #toolSong.mp3towav(names,pathFile)
+
+    mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
+    print("mfccs load")
     #va supprimer tout les fichier mp3 qu'il reste 
     #toolSong.delete_unused_files(pathFile)
 

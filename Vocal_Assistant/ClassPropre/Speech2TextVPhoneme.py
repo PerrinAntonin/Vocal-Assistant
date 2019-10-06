@@ -42,10 +42,10 @@ def preProcessText(texts):
         text = text.replace("|", "")
         text = text.replace(",", "")
         text = text.strip()
-
-
+        text = text2phonemes(text)
         vocab = set(text)
         vocab = ''.join(vocab)
+        
         vocabTotal.append(vocab)
         textsplit.append(text)
     
@@ -54,6 +54,9 @@ def preProcessText(texts):
     print("vocabTotal(",len(vocabTotal),"): ",vocabTotal)
     return textsplit,vocabTotal
 
+def text2phonemes(text):
+    epi = epitran.Epitran('fra-Latn')
+    return(epi.trans_list(text))
 
 # Elle a pour but de selectionner quel parti du song a gardé en fonction de prediction,
 # afin de faire correspondre la longeur des targets au inputs.
@@ -197,6 +200,7 @@ if __name__ == "__main__":
     
     #displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)
+    print("testtetsttetstttetstttetstttest",texts)
 
     #Encodage du texte
     vocab_to_int = {l:i for i,l in enumerate(vocab)}

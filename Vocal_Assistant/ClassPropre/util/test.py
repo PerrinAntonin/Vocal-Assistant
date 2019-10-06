@@ -1,15 +1,17 @@
-import librosa
-import librosa.display
-import matplotlib.pyplot as plt
-import tensorflow as tf
-import numpy as np
-from numpy import argmax
-import pandas as pd
-import glob
-from sklearn.cluster import KMeans
+import epitran
 
 
+def text2phonemes(text):
+    #backoff = Backoff(['hin-Deva', 'eng-Latn', 'cmn-Hans'])
+    epi = epitran.Epitran('fra-Latn')
 
+    print(epi.trans_list(text))
+    test = epitran.Epitran('fra-Latn',rev=True)
+    #print(test.reverse_transliterate(epi))
+
+test = 'coucou comment ca va très bien et toi je t adore'
+text2phonemes(test)
+"""
 pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
 
 files = glob.glob(pathFile+"*.wav")
@@ -17,7 +19,7 @@ print("il y a ",len(files)," qui ont été converti en .wav")
 
 
 
-"""
+
 def converttoOneHot(data,vocab):
     # define a mapping of chars to integers
     char_to_int = dict((c, i) for i, c in enumerate(vocab))

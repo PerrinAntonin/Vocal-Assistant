@@ -15,18 +15,18 @@ class operationOnLists:
             logger.error('ERR: util.operationOnLists\nthe oldLIst is lower than goalList')
             return 0
         diff = oldListSize-len(self.goalList)
-        print("diff",diff)
+        #print("diff",diff)
         saut = oldListSize/diff
         #saut = round(saut,1)
-        print("saut",saut)
-        print ("ratio",oldListSize/diff)
+        #print("saut",saut)
+        #print ("ratio",oldListSize/diff)
 
         i=0
         nbIndexDeleted = 0
         
         while len(self.oldList) !=len(self.goalList):
-            print("new lenght", len(self.oldList))
-            print("Index to delete: ",int(round(i,0))-nbIndexDeleted)
+            #print("new lenght", len(self.oldList))
+            #print("Index to delete: ",int(round(i,0))-nbIndexDeleted)
             self.oldList.pop(int(round(i,0))-nbIndexDeleted)
             nbIndexDeleted +=1
             i +=saut
