@@ -2,7 +2,7 @@ import os
 import glob
 import pydub
 import librosa
-#import util.customCsv as cCsv
+#import customCsv as cCsv
 import numpy as np
 import matplotlib as plt
 
@@ -32,6 +32,7 @@ class editSongs  :
         wavFiles=[]
         for file in names:
             file=path+file
+            file = file.replace(".mp3", ".wav")
             y, sr = librosa.load(file, sr=16000)
             audios = self.split_list(y,len_chunk)
             song=[]
@@ -65,10 +66,11 @@ class editSongs  :
 def main():
     pathFile ="C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/clips/"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    pathCsv2 = "C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/dev.tsv"
-    pathFileV2 ="C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/clips/"
+    pathCsv2 = "C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
+    pathFileV2 ="C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/clips/"
+                
     #va récuperer toutes les informations du csv concernant le nom du song et son texte
-    SongCsv = customCsv.customCsv(pathCsv2)
+    SongCsv = cCsv.customCsv(pathCsv2)
     SongCsv.readcsv()
     toolSong = editSongs()
     names,texts = SongCsv.getContent() 

@@ -48,7 +48,6 @@ def preProcessText(texts):
         
         vocabTotal.append(vocab)
         textsplit.append(text)
-    
     flattened  = [val for sublist in vocabTotal for val in sublist]
     vocabTotal =list(set(flattened))
     print("vocabTotal(",len(vocabTotal),"): ",vocabTotal)
@@ -56,14 +55,14 @@ def preProcessText(texts):
 
 def text2phonemes(text):
     epi = epitran.Epitran('fra-Latn')
-    return(epi.trans_list(text))
+    #return(epi.trans_list(text))
+    return epi.transliterate(text)
 
 # Elle a pour but de selectionner quel parti du song a gardé en fonction de prediction,
 # afin de faire correspondre la longeur des targets au inputs.
-# A FINIR!!!!!!!!
 def select_pred(predictions, songs, targets):
     targets_len = len(targets)
-    print("test",targets_len,"testest",len(predictions))
+    #print("test",targets_len,"testest",len(predictions))
     sentence_predict= []
     for prediction in predictions:
         prediction = tf.keras.backend.get_value(prediction)
@@ -163,8 +162,7 @@ def preProcessAudio(inputs,targets):
     # A CHANGER!!!!
     if(len(sentence_predict)>len(targets)):
         sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
-    print("",len(sentence_predict),len(targets))
-    
+
     #Seconde partie qui consiste a reduire le nombre de prediction equitablement
     
     return sentence_predict
@@ -179,9 +177,9 @@ def predict(inputs):
 
 if __name__ == "__main__":
     pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
-    pathFileV2 ="C:\\Users\\tompe\\Documents\\dl6\\Vocal-Assistant\\data\\clips\\"
+    pathFileV2 ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    pathCsvV2 = "C:/Users/tompe/Documents/dl6/Vocal-Assistant/data/dev.tsv"
+    pathCsvV2 = "C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
     # a étudier plus tard
     #text2phonemes('hello')
     exampleCsv = uCsv.customCsv(pathCsvV2)
@@ -191,8 +189,8 @@ if __name__ == "__main__":
     #mp3towav(names,pathFile)
     
     #Reduce for dev
-    names= names[:400]
-    texts= texts[:400]
+    names= names[:100]
+    texts= texts[:100]
     toolSong = editSongs.editSongs()
     
     mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
@@ -200,7 +198,7 @@ if __name__ == "__main__":
     
     #displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)
-    print("testtetsttetstttetstttetstttest",texts)
+    print("testtetsttetstttetstttetstttest",texts[0])
 
     #Encodage du texte
     vocab_to_int = {l:i for i,l in enumerate(vocab)}
@@ -256,29 +254,9 @@ if __name__ == "__main__":
                 
             model.reset_states()
     
+    model.save("model_rnn.h5")
+
     with open("model_rnn_vocab_to_int", "w") as f:
         f.write(json.dumps(vocab_to_int))
     with open("model_rnn_int_to_vocab", "w") as f:
         f.write(json.dumps(int_to_vocab))
-
-"""
-    for epoch in range(epochs):
-        for batch_inputs, batch_targets in zip(mfccs, encoded_texts):
-            for i in range(len(batch_inputs[1])):
-                N=len(batch_targets)
-
-                TrainX=np.array(batch_inputs[:, i])
-                TrainX =np.float32(TrainX)
-                TrainX= np.reshape(TrainX,(1,1, TrainX.shape[0]))
-                batch_targets = np.array(batch_targets)
-                batch_targets = np.expand_dims(batch_targets, axis=0)
-                print(batch_targets.shape)
-                print(batch_targets)
-                #batch_targets= np.reshape(batch_targets,(1, batch_targets.shape))
-                train_step(TrainX, batch_targets)
-        template = '\r Epoch {}, Train Loss: {}, Train Accuracy: {}'
-        print(template.format(epoch, train_loss.result(), train_accuracy.result()*100), end="")
-        model.reset_states()
-        stateful lstm
-        """
-        

@@ -1,6 +1,7 @@
 import epitran
+import glob2
 
-
+"""
 def text2phonemes(text):
     #backoff = Backoff(['hin-Deva', 'eng-Latn', 'cmn-Hans'])
     epi = epitran.Epitran('fra-Latn')
@@ -12,11 +13,13 @@ def text2phonemes(text):
 test = 'coucou comment ca va très bien et toi je t adore'
 text2phonemes(test)
 """
-pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
+pathFile ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
 
-files = glob.glob(pathFile+"*.wav")
+files = glob2.glob(pathFile+"*.wav")
 print("il y a ",len(files)," qui ont été converti en .wav")
-
+for file in files:
+    if(file == )
+"""
 
 
 
