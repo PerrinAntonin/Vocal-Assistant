@@ -17,7 +17,15 @@ from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropou
 import util.customCsv as uCsv
 import util.editSongs as editSongs
 import util.operationOnLists as operationOnLists
+testindex = 0
 
+class OneHot(tf.keras.layers.Layer):
+    def __init__(self, depth, **kwargs):
+        super(OneHot, self).__init__(**kwargs)
+        self.depth = depth
+
+    def call(self, x, mask=None):
+        return tf.one_hot(tf.cast(x, tf.int32), self.depth)
 
 def preProcessText(texts):
     textsplit=[]
@@ -99,6 +107,7 @@ def converttoOneHot(data,vocab):
 def gen_batch(files,label_files,batch_size=256):      
     batch_x=[]
     batch_y=[]
+
     print("Selection des bons echantillions de song a utiliser.")
     for file, label_song in zip(files, label_files):
         correct_sample_song = preProcessAudio(file, label_song)
@@ -161,7 +170,9 @@ def preProcessAudio(inputs,targets):
     sentence_predict = select_pred(predictions, batch_input, targets)
     # A CHANGER!!!!
     if(len(sentence_predict)>len(targets)):
+        testindex = testindex+1
         sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
+        print(testindex)
 
     #Seconde partie qui consiste a reduire le nombre de prediction equitablement
     
@@ -176,6 +187,7 @@ def predict(inputs):
 
 
 if __name__ == "__main__":
+
     pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
     pathFileV2 ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
@@ -189,8 +201,8 @@ if __name__ == "__main__":
     #mp3towav(names,pathFile)
     
     #Reduce for dev
-    names= names[:100]
-    texts= texts[:100]
+    names= names[:150]
+    texts= texts[:150]
     toolSong = editSongs.editSongs()
     
     mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
@@ -226,7 +238,7 @@ if __name__ == "__main__":
     model = createModel()
     model.summary()
 
-    epochs = 20
+    epochs = 30
     batch_size = 256
     actual_batch = 0
     model.reset_states()

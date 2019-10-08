@@ -53,8 +53,9 @@ def getsong():
     print("mfccs load")
     return mfccs
 def main():
-    song  = getsong()
-    print(np.array(song).shape)
+    
+
+    
     #model = createModel
     #model.load_weights("model_rnn.h5")
     model = tf.keras.models.load_model("model_rnn.h5")
@@ -64,9 +65,19 @@ def main():
         int_to_vocab = json.loads(f.read())
         int_to_vocab = {int(key):int_to_vocab[key] for key in int_to_vocab}
 
-        print(model(song[0]))
+    songs  = getsong()[0]
+    predictions = []
+    finalSentence = []
+    print("il y a :",len(songs))
+    for song in songs:
+        song = np.expand_dims(song, axis=0)
 
+        predictions.append(np.argsort(model(song)))
 
+    for prediction in predictions:
+        decoded_text = int_to_vocab[np.argmax(prediction[0])]
+        finalSentence +=decoded_text 
+    print(finalSentence)
 
 if __name__ == "__main__":
     main()
