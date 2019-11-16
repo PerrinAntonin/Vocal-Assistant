@@ -17,15 +17,8 @@ from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropou
 import util.customCsv as uCsv
 import util.editSongs as editSongs
 import util.operationOnLists as operationOnLists
-testindex = 0
 
-class OneHot(tf.keras.layers.Layer):
-    def __init__(self, depth, **kwargs):
-        super(OneHot, self).__init__(**kwargs)
-        self.depth = depth
-
-    def call(self, x, mask=None):
-        return tf.one_hot(tf.cast(x, tf.int32), self.depth)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def preProcessText(texts):
     textsplit=[]
@@ -74,34 +67,26 @@ def select_pred(predictions, songs, targets):
     sentence_predict= []
     for prediction in predictions:
         prediction = tf.keras.backend.get_value(prediction)
+        
         prediction = list(prediction[0])
-        max_value = max(prediction)
-        #print("max value",max_value)
-        max_index =prediction.index(max_value)
+        max_index = np.argmax(prediction)
         #print("max index", max_index)
         #print("il a predit la lettre ",vocab[max_index])
         sentence_predict.append(vocab[max_index])
         correct_sentence_song = []
     i=0
-    while i < (len(sentence_predict)-1): 
-        if not (sentence_predict[i]==sentence_predict[i+1]):
-            correct_sentence_song.append(songs[i])
+    while (i < (len(sentence_predict)-1)):
+        if (len(targets)>len(correct_sentence_song)):
+            if not (sentence_predict[i]==sentence_predict[i+1]):
+                correct_sentence_song.append(songs[i])
         i += 1
 
     return correct_sentence_song
 
-# Cette fonction converti le texte en numerique puis en encodage one hot
-def converttoOneHot(data,vocab):
+# Cette fonction converti le texte en numerique 
+def converttoInt(data,vocab):
     # integer encode input data
     integer_encoded = [vocab_to_int[char] for char in data]
-    # one hot encode
-    """
-    onehot_encoded = list()
-    for value in integer_encoded:
-        letter = [0 for _ in range(len(vocab))]
-        letter[value] = 1
-        onehot_encoded.append(letter)
-        """
     return integer_encoded
 
 def gen_batch(files,label_files,batch_size=256):      
@@ -142,7 +127,7 @@ def train_step(inputs, targets):
         #print(" shape after prediction model of targets",targets.shape)
         #print(" shape after prediction model of predictions",predictions.shape)
         # calcul de l'erreur en fonction de la prediction et des targets
-        loss = loss_object(targets, predictions)
+        loss = tf.keras.losses.categorical_crossentropy(targets, predictions)
         #print("calcul loss",loss)
     # calcul du gradient en fonction du loss
     # trainable_variables est la lst des variable entrainable dans le model
@@ -170,9 +155,11 @@ def preProcessAudio(inputs,targets):
     sentence_predict = select_pred(predictions, batch_input, targets)
     # A CHANGER!!!!
     if(len(sentence_predict)>len(targets)):
-        testindex = testindex+1
         sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
-        print(testindex)
+    if(len(sentence_predict)<len(targets)):
+         print("y'a un probbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    print("Finale",len(sentence_predict),len(targets))    
+
 
     #Seconde partie qui consiste a reduire le nombre de prediction equitablement
     
@@ -192,17 +179,17 @@ if __name__ == "__main__":
     pathFileV2 ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
     pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
     pathCsvV2 = "C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    # a étudier plus tard
-    #text2phonemes('hello')
+
     exampleCsv = uCsv.customCsv(pathCsvV2)
     exampleCsv.readcsv()
     names,texts = exampleCsv.getContent()
+
     #a activer s'il y a des fichier mp3 dans la dataset
     #mp3towav(names,pathFile)
     
     #Reduce for dev
-    names= names[:150]
-    texts= texts[:150]
+    names= names[:500]
+    texts= texts[:500]
     toolSong = editSongs.editSongs()
     
     mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
@@ -210,14 +197,14 @@ if __name__ == "__main__":
     
     #displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)
-    print("testtetsttetstttetstttetstttest",texts[0])
+    print("testtetsttetsttt",texts[0])
 
     #Encodage du texte
     vocab_to_int = {l:i for i,l in enumerate(vocab)}
     int_to_vocab = {i:l for i,l in enumerate(vocab)}
     encoded_texts = []
     for text in texts:
-        encoded_text =converttoOneHot(text,vocab)
+        encoded_text =converttoInt(text,vocab)
         encoded_texts.append(encoded_text)
     print("encoded_text",encoded_texts[0])
     print("decoded_text",int_to_vocab[np.argmax(encoded_texts[0])])
@@ -225,20 +212,21 @@ if __name__ == "__main__":
     #decoded_text = int_to_vocab[np.argmax(encoded_texts[0])]
 
     
-    loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
+    #loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
+    #loss_object = tf.keras.losses.categorical_crossentropy()
     optimizer = tf.keras.optimizers.Adam(lr=0.001)
     #track the evolution
     # Loss
     train_loss = metrics.Mean(name='train_loss')
     valid_loss = metrics.Mean(name='valid_loss')
     # Accuracy
-    train_accuracy = metrics.SparseCategoricalCrossentropy(name='train_accuracy')
-    valid_accuracy = metrics.SparseCategoricalCrossentropy(name='valid_accuracy')
+    train_accuracy = metrics.CategoricalAccuracy(name='train_accuracy')
+    valid_accuracy = metrics.CategoricalAccuracy(name='valid_accuracy')
 
     model = createModel()
     model.summary()
 
-    epochs = 30
+    epochs = 15
     batch_size = 256
     actual_batch = 0
     model.reset_states()
@@ -256,6 +244,7 @@ if __name__ == "__main__":
 
             for x,y in zip(song, target):
                 x = np.expand_dims(x, axis=0)
+                y = tf.one_hot(y, len(vocab))
                 train_step(x, y)
                 template = '\r Batch {}/{}, Loss: {}, Accuracy: {}'
                 print(template.format(actual_batch, len(texts),

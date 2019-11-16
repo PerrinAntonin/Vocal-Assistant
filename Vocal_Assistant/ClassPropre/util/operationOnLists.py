@@ -7,11 +7,12 @@ class operationOnLists:
 
 
     def divide_equitably(self):
-        logger = logging.getLogger(__name__)
-        coloredlogs.install(level='ERROR', logger=logger)
+
 
         oldListSize = len(self.oldList)
-        if oldListSize<len(self.goalList):            
+        if oldListSize<len(self.goalList):
+            logger = logging.getLogger(__name__)
+            coloredlogs.install(level='ERROR', logger=logger)      
             logger.error('ERR: util.operationOnLists\nthe oldLIst is lower than goalList')
             return 0
         diff = oldListSize-len(self.goalList)

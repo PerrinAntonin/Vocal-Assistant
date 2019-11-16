@@ -1,5 +1,18 @@
+
+
+
+
+
 import epitran
 import glob2
+import tensorflow as tf
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+
+indices = 2
+depth = 16
+print(tf.one_hot(indices, depth))
 
 """
 def text2phonemes(text):
@@ -12,14 +25,14 @@ def text2phonemes(text):
 
 test = 'coucou comment ca va très bien et toi je t adore'
 text2phonemes(test)
-"""
+
 pathFile ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
 
 files = glob2.glob(pathFile+"*.wav")
 print("il y a ",len(files)," qui ont été converti en .wav")
 for file in files:
     if(file == )
-"""
+
 
 
 
