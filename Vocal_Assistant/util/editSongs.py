@@ -4,10 +4,10 @@ import pydub
 import librosa
 #import customCsv as cCsv
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 
-class editSongs  :
+class editSongs:
     #convert mp3 to wav
     def mp3towav(self,names,path):
         for name in names:
@@ -22,9 +22,12 @@ class editSongs  :
 
     #delete mp3 files
     def delete_unused_files(self,pathFile):
+        i=0
         os.chdir(pathFile)
         files=glob.glob('*.mp3')
         for file in files:
+            i = i+1
+            print(i)
             os.remove(file)
 
     #get mfccs from wavs song
@@ -36,12 +39,18 @@ class editSongs  :
             y, sr = librosa.load(file, sr=16000)
             audios = self.split_list(y,len_chunk)
             song=[]
+            
             for audio in audios:
                 audio = np.array(audio)
                 mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
                 song.append(mfccs)
+                template = '\r - Load Mffcs: {}%, Total songs: {}'
 
             wavFiles.append(song)
+            print(template.format(len(wavFiles)*100/len(names),
+                        len(names)),
+                        end="")
+
         return wavFiles
     #split list by chunk / divide the song all n ms
     def split_list(self,a_list,len_chunk):
@@ -53,8 +62,7 @@ class editSongs  :
         return chunks
 
     def displayMffc(self,mfcc,text):
-        print(text)
-        plt.figure(figsize=(10, 4))
+        plt.Figure(figsize=(10, 4))
         librosa.display.specshow(mfcc, x_axis='time')
         plt.colorbar()
         plt.title(text)
@@ -64,26 +72,25 @@ class editSongs  :
 #exemple of use
 """
 def main():
-    pathFile ="C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/clips/"
-    pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    pathCsv2 = "C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    pathFileV2 ="C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/clips/"
-                
+    pathFile ="C:\\Users\\tompe\\Documents\\deeplearning\\Vocal-Assistant\\data\\clips\\"
+    pathCsv = "C:\\Users\\tompe\\Documents\\deeplearning\\Vocal-Assistant\\data\\dev.tsv"
+        
     #va récuperer toutes les informations du csv concernant le nom du song et son texte
-    SongCsv = cCsv.customCsv(pathCsv2)
+    SongCsv = cCsv.customCsv(pathCsv)
+
     SongCsv.readcsv()
     toolSong = editSongs()
     names,texts = SongCsv.getContent() 
 
     print("exemple: ",names[1])
-    names = names[:40]
+    #names = names[:500]
     #va checker si le fichier exister et le convertir en mp3
-    #toolSong.mp3towav(names,pathFile)
+    toolSong.mp3towav(names,pathFile)
 
-    mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
-    print("mfccs load")
+    # mfccs= toolSong.loaMffcsFromWav(names,pathFile)
+    # print("mfccs load")
     #va supprimer tout les fichier mp3 qu'il reste 
-    #toolSong.delete_unused_files(pathFile)
+    toolSong.delete_unused_files(pathFile)
 
 if __name__ == "__main__":
     main()

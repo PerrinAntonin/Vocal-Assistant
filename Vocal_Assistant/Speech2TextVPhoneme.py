@@ -1,15 +1,9 @@
 import os
-import glob
 import json
-import time
-import pydub
-import librosa
 import epitran
 import unidecode
 import numpy as np
-import librosa.display
 import tensorflow as tf
-import matplotlib.pyplot as plt
 from tensorflow.python.keras import metrics, optimizers, losses
 from tensorflow.python.keras.models import Model, Sequential
 from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropout, MaxPooling1D,LSTM,Input
@@ -17,6 +11,7 @@ from tensorflow.python.keras.layers import Conv1D, Dense, Flatten,Lambda, Dropou
 import util.customCsv as uCsv
 import util.editSongs as editSongs
 import util.operationOnLists as operationOnLists
+
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -30,8 +25,6 @@ def preProcessText(texts):
         text = text.replace("(", "")
         text = text.replace(")", "")
         text = text.replace("_", "")
-        text = text.replace("ç", "c")
-        text = text.replace("à", "a")
         text = text.replace("º", "")
         text = text.replace("=", "")
         text = text.replace("^", "")
@@ -39,11 +32,12 @@ def preProcessText(texts):
         text = text.replace("}", "")
         text = text.replace(";", ",")
         text = text.replace(":", " ")
-        text = text.replace("'", " ")
         text = text.replace("|", "")
         text = text.replace(",", "")
+        text = text.replace(".", "")
         text = text.strip()
         text = text2phonemes(text)
+        text = " " + text + " "
         vocab = set(text)
         vocab = ''.join(vocab)
         
@@ -56,32 +50,9 @@ def preProcessText(texts):
 
 def text2phonemes(text):
     epi = epitran.Epitran('fra-Latn')
-    #return(epi.trans_list(text))
+    # print(text +": "+str(epi.trans_list(text)))
+    # return(epi.trans_list(text))
     return epi.transliterate(text)
-
-# Elle a pour but de selectionner quel parti du song a gardé en fonction de prediction,
-# afin de faire correspondre la longeur des targets au inputs.
-def select_pred(predictions, songs, targets):
-    targets_len = len(targets)
-    #print("test",targets_len,"testest",len(predictions))
-    sentence_predict= []
-    for prediction in predictions:
-        prediction = tf.keras.backend.get_value(prediction)
-        
-        prediction = list(prediction[0])
-        max_index = np.argmax(prediction)
-        #print("max index", max_index)
-        #print("il a predit la lettre ",vocab[max_index])
-        sentence_predict.append(vocab[max_index])
-        correct_sentence_song = []
-    i=0
-    while (i < (len(sentence_predict)-1)):
-        if (len(targets)>len(correct_sentence_song)):
-            if not (sentence_predict[i]==sentence_predict[i+1]):
-                correct_sentence_song.append(songs[i])
-        i += 1
-
-    return correct_sentence_song
 
 # Cette fonction converti le texte en numerique 
 def converttoInt(data,vocab):
@@ -89,17 +60,47 @@ def converttoInt(data,vocab):
     integer_encoded = [vocab_to_int[char] for char in data]
     return integer_encoded
 
-def gen_batch(files,label_files,batch_size=256):      
-    batch_x=[]
-    batch_y=[]
+def get_batches(X, Y, batch_size):
+    X = np.array(X)
+    Y = np.array(Y)
+    songs = []
+    targets = []
+    n_samples = X.shape[0]
 
-    print("Selection des bons echantillions de song a utiliser.")
-    for file, label_song in zip(files, label_files):
-        correct_sample_song = preProcessAudio(file, label_song)
-        
-        batch_x += [ correct_sample_song ]
-        batch_y += [ label_song ] 
-    return batch_x, batch_y
+    for idx in range(n_samples):
+        song, target = balanceDataset(X[idx],Y[idx])
+        songs.append(song)
+        targets.append(target)
+        if(len(songs)==batch_size):
+            bufferSong = songs.copy()
+            bufferTarget = targets.copy()
+            songs = []
+            targets = []
+            yield bufferSong, bufferTarget
+
+def balanceDataset(song,target):
+    noUpdate = True
+    index=0
+    indexTarget=0
+    targetbase = target.copy()
+    ratio = len(song)/len(target)
+
+    while len(target) < len(song):
+        for i in range(int(ratio)):
+            if len(target) < len(song):
+
+                target.insert(index, targetbase[indexTarget])
+                index+=1
+                noUpdate = False
+        indexTarget+=1
+        if(noUpdate):
+            if(len(target) != len(song)):
+                print("pas bon: "+str(len(song)-len(target)))
+            break
+    if(len(target) != len(song)):
+        print("pas bon: "+str(len(song)-len(target)))
+    return song,target
+
 
 def createModel():
     model = Sequential()
@@ -119,85 +120,63 @@ def createModel():
     return model
 
 @tf.function
-def train_step(inputs, targets):
+def train_step(mfcc, target):
     # permet de surveiller les opérations réalisé afin de calculer le gradient    
     with tf.GradientTape() as tape:
-        # fait une prediction
-        predictions = model(inputs)
-        #print(" shape after prediction model of targets",targets.shape)
-        #print(" shape after prediction model of predictions",predictions.shape)
+        prediction = model(mfcc,training=True)
         # calcul de l'erreur en fonction de la prediction et des targets
-        loss = tf.keras.losses.categorical_crossentropy(targets, predictions)
-        #print("calcul loss",loss)
+        loss = tf.keras.losses.categorical_crossentropy(target,prediction)
     # calcul du gradient en fonction du loss
     # trainable_variables est la lst des variable entrainable dans le model
     gradients = tape.gradient(loss, model.trainable_variables)
-    #print("calcul gradient")
     # changement des poids grace aux gradient
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    #print("etape optimizer")
     # ajout de notre loss a notre vecteur de stockage
     train_loss(loss)
-    #print("etape train loss")
-    train_accuracy(targets, predictions)
-    #print("etape train accuracy")
+    train_accuracy(target, prediction)
 
-def preProcessAudio(inputs,targets):
-    #premiere partie qui consiste a enlever les doublons
-    batch_input = np.float32(inputs)
-    targets = np.array(targets)
-    predictions = []
+@tf.function
+def valid_step(mfcc, target):
+    prediction = model(mfcc)
+    loss = tf.keras.losses.categorical_crossentropy(target, prediction)
+    # Set the metrics for the test
+    valid_loss(loss)
+    valid_accuracy(target, prediction)
 
-    for input in batch_input:
-        input = np.expand_dims(input, axis=0)
-        prediction = predict(input)
-        predictions.append(prediction)
-    sentence_predict = select_pred(predictions, batch_input, targets)
-    # A CHANGER!!!!
-    if(len(sentence_predict)>len(targets)):
-        sentence_predict,targets = operationOnLists.operationOnLists(sentence_predict,targets).divide_equitably()
-    if(len(sentence_predict)<len(targets)):
-         print("y'a un probbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-    print("Finale",len(sentence_predict),len(targets))    
-
-
-    #Seconde partie qui consiste a reduire le nombre de prediction equitablement
-    
-    return sentence_predict
 
 @tf.function
 def predict(inputs):
-    # Make a prediction on all the batch
-    predictions = model(inputs)
+    predictions = model.predict(inputs)
     return predictions
 
 
 
 if __name__ == "__main__":
+    print("TensorFlow version: {}".format(tf.__version__))
+    print("Eager execution: {}".format(tf.executing_eagerly()))
 
-    pathFile ="C:\\Users\\anto\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
-    pathFileV2 ="C:\\Users\\tompe\\Documents\\deepLearning\\Vocal_Assistant\\data\\clips\\"
-    pathCsv = "C:/Users/anto/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-    pathCsvV2 = "C:/Users/tompe/Documents/deepLearning/Vocal_Assistant/data/dev.tsv"
-
-    exampleCsv = uCsv.customCsv(pathCsvV2)
+    pathFile ="C:\\Users\\tompe\\Documents\\deeplearning\\Vocal-Assistant\\data\\clips\\"
+    pathCsv = "C:\\Users\\tompe\\Documents\\deeplearning\\Vocal-Assistant\\data\\dev.tsv"
+    pathValidaCsv = "C:\\Users\\tompe\\Documents\\deeplearning\\Vocal-Assistant\\data\\vali.tsv"
+    exampleCsv = uCsv.customCsv(pathCsv)
     exampleCsv.readcsv()
     names,texts = exampleCsv.getContent()
 
-    #a activer s'il y a des fichier mp3 dans la dataset
-    #mp3towav(names,pathFile)
+    # A activer s'il y a des fichier mp3 dans la dataset
+    #editSongs.mp3towav(names,pathFile)
     
     #Reduce for dev
-    names= names[:500]
-    texts= texts[:500]
+    names = names[:10]
+
+    texts = texts[:10]
     toolSong = editSongs.editSongs()
     
-    mfccs= toolSong.loaMffcsFromWav(names,pathFileV2)
-    print("mfccs load")
+    mfccs = toolSong.loaMffcsFromWav(names,pathFile)
+    print("\n All mfccs loaded")
     
-    #displayMffc(mfccs[2][2],texts[2])
+    #toolSong.displayMffc(mfccs[2][2],texts[2])
     texts,vocab = preProcessText(texts)
-    print("testtetsttetsttt",texts[0])
+    print("decoded_text example: ",texts[0])
 
     #Encodage du texte
     vocab_to_int = {l:i for i,l in enumerate(vocab)}
@@ -206,16 +185,15 @@ if __name__ == "__main__":
     for text in texts:
         encoded_text =converttoInt(text,vocab)
         encoded_texts.append(encoded_text)
-    print("encoded_text",encoded_texts[0])
-    print("decoded_text",int_to_vocab[np.argmax(encoded_texts[0])])
+    print("encoded_text example: ",encoded_texts[0])
+    print("decoded_text example: ",[int_to_vocab[char] for char in encoded_texts[0]])
     
-    #decoded_text = int_to_vocab[np.argmax(encoded_texts[0])]
+    #decoded_text = [int_to_vocab[char] for char in encoded_texts[0]]
 
     
-    #loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
     #loss_object = tf.keras.losses.categorical_crossentropy()
     optimizer = tf.keras.optimizers.Adam(lr=0.001)
-    #track the evolution
+    # track the evolution
     # Loss
     train_loss = metrics.Mean(name='train_loss')
     valid_loss = metrics.Mean(name='valid_loss')
@@ -227,34 +205,45 @@ if __name__ == "__main__":
     model.summary()
 
     epochs = 15
-    batch_size = 256
+    batch_size = 32
     actual_batch = 0
     model.reset_states()
-    print("generation des batchs.")
-   
-    songs, targets =gen_batch(mfccs, encoded_texts,batch_size)
-    print("batchSize : ",batch_size)
+
     for epoch in range(epochs):
         print("\n epoch :", epoch)
-        for song, target in zip(songs, targets):
-            song = np.array(song)
-            target = np.array(target)
-            #print("shape of song",song.shape)
-            #print("shape of targets",target.shape)
+        model.reset_states()
+        actual_batch = 0
+        for songs, targets in get_batches(mfccs, encoded_texts,batch_size):
+            songs = np.array(songs)
+            targets = np.array(targets)
+            for song,target in zip(songs, targets):
 
-            for x,y in zip(song, target):
-                x = np.expand_dims(x, axis=0)
-                y = tf.one_hot(y, len(vocab))
-                train_step(x, y)
-                template = '\r Batch {}/{}, Loss: {}, Accuracy: {}'
-                print(template.format(actual_batch, len(texts),
-                                train_loss.result(), 
-                                train_accuracy.result()*100),
-                                end="")
-                actual_batch += batch_size
+                for x,y in zip(song, target):
+                    x = np.expand_dims(x, axis=0)
+                    y = tf.one_hot(np.array(y), len(vocab))
+                    y = np.expand_dims(y, axis=0)
+                    train_step(x, y)
+                    #valid_step(x, y)
                 
-            model.reset_states()
-    
+            template = '\r Batch {}/{}, Train Loss: {}, Train Accuracy: {}, Valid Loss: {}, Valid Accuracy: {}'
+            print(template.format(actual_batch, len(names),
+                            train_loss.result(), 
+                            train_accuracy.result()*100,
+                            valid_loss.result(), 
+                            valid_accuracy.result()*100),
+                            end="")
+            actual_batch += batch_size
+        # for songs, targets in get_batches(mfccs, encoded_texts,batch_size):
+        #     valid_step(x, y)
+        # template = '\r Batch {}/{}, Train Loss: {}, Train Accuracy: {}, Valid Loss: {}, Valid Accuracy: {}'
+        # print(template.format(actual_batch, len(names),
+        #                 train_loss.result(), 
+        #                 train_accuracy.result()*100,
+        #                 valid_loss.result(), 
+        #                 valid_accuracy.result()*100),
+        #                 end="")                
+        #     model.reset_states()
+        
     model.save("model_rnn.h5")
 
     with open("model_rnn_vocab_to_int", "w") as f:
